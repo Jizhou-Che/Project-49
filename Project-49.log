@@ -1,0 +1,26 @@
+24.01.19 THU
+Successfully linked to GLEW and GLFW on Arch Linux.
+Compiling command: g++ Project-49.cpp -o Project-49 -lGL -lGLEW -lglfw
+Extra flags: -lGLU -lglfw3 -lX11 -lXxf86vm -lXrandr -lpthread -lXi -ldl -lXinerama -lXcursor
+
+30.01.19 WED
+Gave up in displaying a uv sphere manually (T_T).
+Switching to GLUT.
+Compiling command: g++ Project-49.cpp -o Project-49 -lGL -lGLU -lglut
+
+04.02.19 MON
+Bringing spinning functionality to the sphere.
+
+23.05.19 THU
+Project-49 reinitiated.
+
+24.05.19 FRI
+Successfully linked to GLUT on macOS.
+Compiling command: g++ Project-49.cpp -o Project-49 -framework OpenGL -framework GLUT
+Calculation of coordinates for points at intersection implemented.
+Basic logic for placing points implemented.
+Measurement of maximising the minimum straight line distance between any two points implemented.
+Bug in the calculation of coordinates for points at intersection on a sphere with 10 stacks and 10 slices.
+
+29.05.19 WED
+Important optimisation to the measurement of maximising the minimum straight line distance between any two points implemented.
