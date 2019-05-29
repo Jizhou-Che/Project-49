@@ -21,6 +21,8 @@ static bool completed = false;
 // OpenGL global variables.
 static int window;
 
+static const int windowSize = 1280;
+
 static GLfloat rotateX = 0.0;
 static GLfloat rotateY = 0.0;
 static GLfloat rotateZ = 0.0;
@@ -227,7 +229,7 @@ void display(){
 
 void idle(){
 	place_points();
-	glutPostRedisplay();
+//	glutPostRedisplay(); // Comment out this line to disable animation.
 }
 
 void reshape(GLint w, GLint h){
@@ -265,6 +267,12 @@ void keyboard(unsigned char key, int x, int y){
 			rotateZ = 1.0;
 			glutPostRedisplay();
 			break;
+		//
+		// Used in no-animation mode.
+		case '/':
+			glutPostRedisplay();
+			break;
+		//
 		case 13:
 			if(completed == false){
 				if(processing == false){
@@ -288,7 +296,7 @@ int main(int argc, char ** argv){
 	set_cross_points(radius, slices, stacks);
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
-	glutInitWindowSize(1280, 1280);
+	glutInitWindowSize(windowSize, windowSize);
 	glutInitWindowPosition(0, 0);
 	window = glutCreateWindow(argv[0]);
 	glutDisplayFunc(display);

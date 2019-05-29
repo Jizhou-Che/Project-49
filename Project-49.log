@@ -24,3 +24,4 @@ Bug in the calculation of coordinates for points at intersection on a sphere wit
 
 29.05.19 WED
 Important optimisation to the measurement of maximising the minimum straight line distance between any two points implemented.
+No-animation mode implemented.
