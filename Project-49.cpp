@@ -2,58 +2,63 @@
 #include <GLUT/glut.h> // macOS.
 // #include <GL/glut.h> // Linux.
 #include <cmath>
+#include <limits>
 
 // Calculation global variables.
-static const GLfloat radius = 1.0; // Radius of sphere.
+static const GLdouble radius = 1.0; // Radius of sphere.
 static const GLint stacks = 20; // Numebr of latitude lines + 1.
 static const GLint slices = 20; // Number of longtitude lines.
 static const int numOfPoints = 8; // Number of points to place on the sphere.
 
-static GLdouble crossPoints[(stacks - 1) * slices + 2][3]; // Set of all points at intersection.
+static GLdouble crossPoints[(stacks - 1) * slices + 2][5]; // Set of all points at intersection, cartesian and spherical coordinates.
 static int currentPointsIndices[numOfPoints]; // The indices of the current placing of points.
 static GLdouble currentPoints[numOfPoints][3]; // The current placing of points being measured.
 static GLdouble optimalPoints[numOfPoints][3]; // The placing of points with optimal measurement value.
 static double optimalMeasurement; // The measurement value for the optimal placing.
 
-static bool processing = false;
-static bool completed = false;
+static bool processing = false; // Whether the measurement is processing.
+static bool completed = false; // Whether the measurement is completed.
 
 // OpenGL global variables.
 static int window;
 
-static const int windowSize = 1280;
+static const int windowSize = 1280; // Size of window.
 
-static GLfloat rotateX = 0.0;
-static GLfloat rotateY = 0.0;
-static GLfloat rotateZ = 0.0;
+static GLfloat rotateX = 0.0; // The pending rotation around x axis.
+static GLfloat rotateY = 0.0; // The pending rotation around y axis.
+static GLfloat rotateZ = 0.0; // The pending rotation around z axis.
+
+static bool animation = false; // Whether animation is enabled.
 
 // Calculation of coordinates for points at intersection.
 void set_cross_points(GLfloat radius, GLint slices, GLint stacks){
 	int flag = 0;
 	// Top.
-	crossPoints[flag][0] = 0.0;
-	crossPoints[flag][1] = 0.0;
-	crossPoints[flag][2] = 1.0;
+	crossPoints[flag][0] = 0;
+	crossPoints[flag][1] = 0;
+	crossPoints[flag][2] = radius;
 	for(int i = 0; i < stacks - 1; i++){
 		// Stacks, from z+ to z-.
 		for(int j = 0; j < slices; j++){
 			// Slices, starting from x+.
-			// Angle between the projection of OP on x-y plane and x+.
-			double theta = j * 2 * M_PI / slices;
 			// Angle between OP and z+.
-			double fi = (i + 1) * M_PI / stacks;
+			double theta = (i + 1) * M_PI / stacks;
+			// Angle between the projection of OP on x-y plane and x+.
+			double phi = j * 2 * M_PI / slices;
 			// Calculation of coordinates.
 			flag++;
-			crossPoints[flag][0] = cos(theta) * sin(fi) * radius;
-			crossPoints[flag][1] = sin(theta) * sin(fi) * radius;
-			crossPoints[flag][2] = cos(fi) * radius;
+			crossPoints[flag][0] = sin(theta) * cos(phi) * radius;
+			crossPoints[flag][1] = sin(theta) * sin(phi) * radius;
+			crossPoints[flag][2] = cos(theta) * radius;
+			crossPoints[flag][3] = theta;
+			crossPoints[flag][4] = phi;
 		}
 	}
 	// Bottom.
 	flag++;
-	crossPoints[flag][0] = 0.0;
-	crossPoints[flag][1] = 0.0;
-	crossPoints[flag][2] = -1.0;
+	crossPoints[flag][0] = 0;
+	crossPoints[flag][1] = 0;
+	crossPoints[flag][2] = - radius;
 }
 
 /*
@@ -61,21 +66,21 @@ void set_cross_points(GLfloat radius, GLint slices, GLint stacks){
 // Update the optimal measurement value if applicable.
 // Using measurement: maximise the minimum straight line distance between any two points.
 // Without optimisation.
-static double minMeasurement = 0;
+static double baseMeasurement = 0; // Initial value of measurement.
 void measure(){
 	// Calculate the minimum straight line distance between any two points.
 	double minDistance = 2 * radius;
 	for(int i = 0; i < numOfPoints - 1; i++){
 		for(int j = i + 1; j < numOfPoints; j++){
-			double distance = sqrt(pow(currentPoints[i][0] - currentPoints[j][0], 2) + pow(currentPoints[i][1] - currentPoints[j][1], 2) + pow(currentPoints[i][2] - currentPoints[j][2], 2));
-			if(distance <= minDistance){
-				minDistance = distance;
+			double currentDistance = sqrt(pow(currentPoints[i][0] - currentPoints[j][0], 2) + pow(currentPoints[i][1] - currentPoints[j][1], 2) + pow(currentPoints[i][2] - currentPoints[j][2], 2));
+			if(currentDistance <= minDistance){
+				minDistance = currentDistance;
 			}
 		}
 	}
 	// Update the optimal measurement value if applicable.
-	if(minDistance > minMeasurement){
-		optimalMeasurement = minMeasurement = minDistance;
+	if(minDistance > baseMeasurement){
+		optimalMeasurement = baseMeasurement = minDistance;
 		for(int i = 0; i < numOfPoints; i++){
 			optimalPoints[i][0] = currentPoints[i][0];
 			optimalPoints[i][1] = currentPoints[i][1];
@@ -86,28 +91,28 @@ void measure(){
 }
 */
 
-//
+/*
 // Measure the current placing of points.
 // Update the optimal measurement value if applicable.
 // Using measurement: maximise the minimum straight line distance between any two points.
 // Optimisation: update the opsition of the second one of the two points that forms the minimum distance.
-static double minMeasurement = 0;
+static double baseMeasurement = 0; // Initial value of measurement.
 void measure(){
 	// Calculate the minimum straight line distance between any two points.
 	double minDistance = 2 * radius;
 	int worstIndex;
 	for(int i = 0; i < numOfPoints - 1; i++){
 		for(int j = i + 1; j < numOfPoints; j++){
-			double distance = sqrt(pow(currentPoints[i][0] - currentPoints[j][0], 2) + pow(currentPoints[i][1] - currentPoints[j][1], 2) + pow(currentPoints[i][2] - currentPoints[j][2], 2));
-			if(distance <= minDistance){
-				minDistance = distance;
+			double currentDistance = sqrt(pow(currentPoints[i][0] - currentPoints[j][0], 2) + pow(currentPoints[i][1] - currentPoints[j][1], 2) + pow(currentPoints[i][2] - currentPoints[j][2], 2));
+			if(currentDistance <= minDistance){
+				minDistance = currentDistance;
 				worstIndex = j;
 			}
 		}
 	}
 	// Update the optimal measurement value if applicable.
-	if(minDistance > minMeasurement){
-		optimalMeasurement = minMeasurement = minDistance;
+	if(minDistance > baseMeasurement){
+		optimalMeasurement = baseMeasurement = minDistance;
 		for(int i = 0; i < numOfPoints; i++){
 			optimalPoints[i][0] = currentPoints[i][0];
 			optimalPoints[i][1] = currentPoints[i][1];
@@ -130,6 +135,108 @@ void measure(){
 		currentPoints[i][0] = crossPoints[currentPointsIndices[i]][0];
 		currentPoints[i][1] = crossPoints[currentPointsIndices[i]][1];
 		currentPoints[i][2] = crossPoints[currentPointsIndices[i]][2];
+	}
+}
+*/
+
+//
+// Measure the current placing of points.
+// Update the optimal measurement value if applicable.
+// Using measurement: minimise 2 * arc(R) / arc(d).
+// Where arc(R) is the arc radius of the smallest empty circle formed by any three points.
+// Where arc(d) is the shortest arc distance between any two points.
+// Without optimisation.
+static double baseMeasurement = std::numeric_limits<double>::max(); // Initial value of measurement.
+void measure(){
+	// Calculate the arc radius of the smallest empty circle formed by any three points.
+	double minRadius = radius;
+	double minRadiusPositions[2][2]; // Spherical coordinates of the radius arc.
+	for(int i = 0; i < numOfPoints - 2; i++){
+		for(int j = i + 1; j < numOfPoints - 1; j++){
+			for(int k = j + 1; k < numOfPoints; k++){
+				// Calculate the ij vector and the ik vector.
+				double vij[3] = {currentPoints[j][0] - currentPoints[i][0], currentPoints[j][1] - currentPoints[i][1], currentPoints[j][2] - currentPoints[i][2]};
+				double vik[3] = {currentPoints[k][0] - currentPoints[i][0], currentPoints[k][1] - currentPoints[i][1], currentPoints[k][2] - currentPoints[i][2]};
+				// Calculate a vector perpendicular to the plane defined by the three points using cross product.
+				double vp[3] = {vij[1] * vik[2] - vik[1] * vij[2], vik[0] * vij[2] - vij[0] * vik[2], vij[0] * vik[1] - vik[0] * vij[1]};
+				// Calculate a vector in the plane perpendicular to vij.
+				double vpij[3] = {vij[1] * vp[2] - vp[1] * vij[2], vp[0] * vij[2] - vij[0] * vp[2], vij[0] * vp[1] - vp[0] * vij[1]};
+				// Calculate midpoint of ij.
+				double mij[3] = {(currentPoints[j][0] + currentPoints[i][0]) / 2, (currentPoints[j][1] + currentPoints[i][1]) / 2, (currentPoints[j][2] + currentPoints[i][2]) / 2};
+				// Calculate a vector in the plane perpendicular to vik.
+				double vpik[3] = {vp[1] * vik[2] - vik[1] * vp[2], vik[0] * vp[2] - vp[0] * vik[2], vp[0] * vik[1] - vik[0] * vp[1]};
+				// Calculate midpoint of ik.
+				double mik[3] = {(currentPoints[k][0] + currentPoints[i][0]) / 2, (currentPoints[k][1] + currentPoints[i][1]) / 2, (currentPoints[k][2] + currentPoints[i][2]) / 2};
+				// Calculate the position of circle centre.
+				double tij;
+				if(currentPoints[j][0] == currentPoints[k][0]){
+					// Solve equation with y and z.
+					tij = ((mik[2] - mij[2]) * vpik[1] + (mij[1] - mik[1]) * vpik[2]) / (vpij[2] * vpik[1] - vpij[1] * vpik[2]);
+				}else if(currentPoints[j][1] == currentPoints[k][1]){
+					// Solve equation with x and z.
+					tij = ((mik[2] - mij[2]) * vpik[0] + (mij[0] - mik[0]) * vpik[2]) / (vpij[2] * vpik[0] - vpij[0] * vpik[2]);
+				}else{
+					// Solve equation with x and y.
+					tij = ((mik[1] - mij[1]) * vpik[0] + (mij[0] - mik[0]) * vpik[1]) / (vpij[1] * vpik[0] - vpij[0] * vpik[1]);
+				}
+				double circleCentre[3] = {mij[0] + tij * vpij[0], mij[1] + tij * vpij[1], mij[2] + tij * vpij[2]};
+				double currentRadius = sqrt(pow(currentPoints[i][0] - circleCentre[0], 2) + pow(currentPoints[i][1] - circleCentre[1], 2) + pow(currentPoints[i][2] - circleCentre[2], 2));
+				// Check if the circle is empty.
+				bool circleEmpty = true;
+				for(int l = 0; l < numOfPoints; l++){
+					if(l != i && l != j && l != k){
+						// A point other than the three points.
+						// Distance between l and circle centre.
+						double dlc = sqrt(pow(currentPoints[l][0] - circleCentre[0], 2) + pow(currentPoints[l][1] - circleCentre[1], 2) + pow(currentPoints[l][2] - circleCentre[2], 2));
+						if(dlc < currentRadius){
+							// l is in the circle.
+							circleEmpty = false;
+							break;
+						}
+					}
+				}
+				if(circleEmpty == false){
+					continue;
+				}
+				// Record the smallest empty circle.
+				if(currentRadius <= minRadius){
+					minRadius = currentRadius;
+					// Projection of circle centre onto the sphere.
+					minRadiusPositions[0][0] = acos(circleCentre[2] / sqrt(pow(circleCentre[0], 2) + pow(circleCentre[1], 2) + pow(circleCentre[2], 2)));
+					minRadiusPositions[0][1] = atan(circleCentre[1] / circleCentre[0]);
+					// Position of i.
+					minRadiusPositions[1][0] = currentPoints[currentPointsIndices[i]][3];
+					minRadiusPositions[1][1] = currentPoints[currentPointsIndices[i]][4];
+				}
+			}
+		}
+	}
+	double minArcRadius = acos(cos(minRadiusPositions[0][0]) * cos(minRadiusPositions[1][0]) + sin(minRadiusPositions[0][0]) * sin(minRadiusPositions[1][0]) * cos(minRadiusPositions[0][1] - minRadiusPositions[1][1])) * radius;
+	// Calculate the shortest arc distance between any two points.
+	double minDistance = 2 * radius;
+	int minDistanceIndices[2];
+	for(int i = 0; i < numOfPoints - 1; i++){
+		for(int j = i + 1; j < numOfPoints; j++){
+			double currentDistance = sqrt(pow(currentPoints[i][0] - currentPoints[j][0], 2) + pow(currentPoints[i][1] - currentPoints[j][1], 2) + pow(currentPoints[i][2] - currentPoints[j][2], 2));
+			if(currentDistance <= minDistance){
+				minDistance = currentDistance;
+				minDistanceIndices[0] = currentPointsIndices[i];
+				minDistanceIndices[1] = currentPointsIndices[j];
+			}
+		}
+	}
+	double minArcDistance = acos(cos(crossPoints[minDistanceIndices[0]][3]) * cos(crossPoints[minDistanceIndices[1]][3]) + sin(crossPoints[minDistanceIndices[0]][3]) * sin(crossPoints[minDistanceIndices[1]][3]) * cos(crossPoints[minDistanceIndices[0]][4] - crossPoints[minDistanceIndices[1]][4])) * radius;
+	// Calculate measurement value.
+	double measurement = 2 * minArcRadius / minArcDistance;
+	// Update the optimal measurement value if applicable.
+	if(measurement < baseMeasurement){
+		optimalMeasurement = baseMeasurement = measurement;
+		for(int i = 0; i < numOfPoints; i++){
+			optimalPoints[i][0] = currentPoints[i][0];
+			optimalPoints[i][1] = currentPoints[i][1];
+			optimalPoints[i][2] = currentPoints[i][2];
+		}
+		std::cout << "Current optimal measurement: " << optimalMeasurement << std::endl;
 	}
 }
 //
@@ -229,7 +336,9 @@ void display(){
 
 void idle(){
 	place_points();
-//	glutPostRedisplay(); // Comment out this line to disable animation.
+	if(animation){
+		glutPostRedisplay();
+	}
 }
 
 void reshape(GLint w, GLint h){
@@ -267,21 +376,26 @@ void keyboard(unsigned char key, int x, int y){
 			rotateZ = 1.0;
 			glutPostRedisplay();
 			break;
-		//
-		// Used in no-animation mode.
-		case '/':
+		case ']':
+			// Used in debug mode.
+			processing = false;
+			glutIdleFunc(NULL);
+			place_points();
 			glutPostRedisplay();
 			break;
-		//
+		case '/':
+			// Used in no-animation mode.
+			glutPostRedisplay();
+			break;
 		case 13:
 			if(completed == false){
 				if(processing == false){
 					// Continue processing.
-					processing = !processing;
+					processing = true;
 					glutIdleFunc(idle);
 				}else{
 					// Pause processing.
-					processing = !processing;
+					processing = false;
 					glutIdleFunc(NULL);
 				}
 			}
