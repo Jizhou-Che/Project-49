@@ -30,3 +30,10 @@ No-animation mode implemented.
 Measurement of minimising 2 * arc(R) / arc(d) implemented.
 Debug mode implemented.
 Minor bug fixes.
+
+04.06.19 TUE
+Important bug fixes.
+Important simplification on the algorithm of measuring 2 * arc(R) / arc(d).
+Caution: dealing with a circle with radius equal to the radius of the sphere.
+Caution: dealing with a circle defined by more than three points.
+Caution: precision loss in double calculation.

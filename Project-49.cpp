@@ -8,9 +8,9 @@
 static const GLdouble radius = 1.0; // Radius of sphere.
 static const GLint stacks = 20; // Numebr of latitude lines + 1.
 static const GLint slices = 20; // Number of longtitude lines.
-static const int numOfPoints = 8; // Number of points to place on the sphere.
+static const int numOfPoints = 3; // Number of points to place on the sphere.
 
-static GLdouble crossPoints[(stacks - 1) * slices + 2][5]; // Set of all points at intersection, cartesian and spherical coordinates.
+static GLdouble crossPoints[(stacks - 1) * slices + 2][3]; // Set of all points at intersection.
 static int currentPointsIndices[numOfPoints]; // The indices of the current placing of points.
 static GLdouble currentPoints[numOfPoints][3]; // The current placing of points being measured.
 static GLdouble optimalPoints[numOfPoints][3]; // The placing of points with optimal measurement value.
@@ -50,15 +50,13 @@ void set_cross_points(GLfloat radius, GLint slices, GLint stacks){
 			crossPoints[flag][0] = sin(theta) * cos(phi) * radius;
 			crossPoints[flag][1] = sin(theta) * sin(phi) * radius;
 			crossPoints[flag][2] = cos(theta) * radius;
-			crossPoints[flag][3] = theta;
-			crossPoints[flag][4] = phi;
 		}
 	}
 	// Bottom.
 	flag++;
 	crossPoints[flag][0] = 0;
 	crossPoints[flag][1] = 0;
-	crossPoints[flag][2] = - radius;
+	crossPoints[flag][2] = -radius;
 }
 
 /*
@@ -69,7 +67,7 @@ void set_cross_points(GLfloat radius, GLint slices, GLint stacks){
 static double baseMeasurement = 0; // Initial value of measurement.
 void measure(){
 	// Calculate the minimum straight line distance between any two points.
-	double minDistance = 2 * radius;
+	double minDistance = std::numeric_limits<double>::max();
 	for(int i = 0; i < numOfPoints - 1; i++){
 		for(int j = i + 1; j < numOfPoints; j++){
 			double currentDistance = sqrt(pow(currentPoints[i][0] - currentPoints[j][0], 2) + pow(currentPoints[i][1] - currentPoints[j][1], 2) + pow(currentPoints[i][2] - currentPoints[j][2], 2));
@@ -99,7 +97,7 @@ void measure(){
 static double baseMeasurement = 0; // Initial value of measurement.
 void measure(){
 	// Calculate the minimum straight line distance between any two points.
-	double minDistance = 2 * radius;
+	double minDistance = std::numeric_limits<double>::max();
 	int worstIndex;
 	for(int i = 0; i < numOfPoints - 1; i++){
 		for(int j = i + 1; j < numOfPoints; j++){
@@ -146,11 +144,11 @@ void measure(){
 // Where arc(R) is the arc radius of the smallest empty circle formed by any three points.
 // Where arc(d) is the shortest arc distance between any two points.
 // Without optimisation.
+// Assume that there are more than two points.
 static double baseMeasurement = std::numeric_limits<double>::max(); // Initial value of measurement.
 void measure(){
 	// Calculate the arc radius of the smallest empty circle formed by any three points.
-	double minRadius = radius;
-	double minRadiusPositions[2][2]; // Spherical coordinates of the radius arc.
+	double minRadius = std::numeric_limits<double>::max();
 	for(int i = 0; i < numOfPoints - 2; i++){
 		for(int j = i + 1; j < numOfPoints - 1; j++){
 			for(int k = j + 1; k < numOfPoints; k++){
@@ -168,17 +166,7 @@ void measure(){
 				// Calculate midpoint of ik.
 				double mik[3] = {(currentPoints[k][0] + currentPoints[i][0]) / 2, (currentPoints[k][1] + currentPoints[i][1]) / 2, (currentPoints[k][2] + currentPoints[i][2]) / 2};
 				// Calculate the position of circle centre.
-				double tij;
-				if(currentPoints[j][0] == currentPoints[k][0]){
-					// Solve equation with y and z.
-					tij = ((mik[2] - mij[2]) * vpik[1] + (mij[1] - mik[1]) * vpik[2]) / (vpij[2] * vpik[1] - vpij[1] * vpik[2]);
-				}else if(currentPoints[j][1] == currentPoints[k][1]){
-					// Solve equation with x and z.
-					tij = ((mik[2] - mij[2]) * vpik[0] + (mij[0] - mik[0]) * vpik[2]) / (vpij[2] * vpik[0] - vpij[0] * vpik[2]);
-				}else{
-					// Solve equation with x and y.
-					tij = ((mik[1] - mij[1]) * vpik[0] + (mij[0] - mik[0]) * vpik[1]) / (vpij[1] * vpik[0] - vpij[0] * vpik[1]);
-				}
+				double tij = ((mik[1] - mij[1]) * vpik[0] + (mij[0] - mik[0]) * vpik[1]) / (vpij[1] * vpik[0] - vpij[0] * vpik[1]);
 				double circleCentre[3] = {mij[0] + tij * vpij[0], mij[1] + tij * vpij[1], mij[2] + tij * vpij[2]};
 				double currentRadius = sqrt(pow(currentPoints[i][0] - circleCentre[0], 2) + pow(currentPoints[i][1] - circleCentre[1], 2) + pow(currentPoints[i][2] - circleCentre[2], 2));
 				// Check if the circle is empty.
@@ -195,37 +183,27 @@ void measure(){
 						}
 					}
 				}
-				if(circleEmpty == false){
-					continue;
-				}
-				// Record the smallest empty circle.
-				if(currentRadius <= minRadius){
-					minRadius = currentRadius;
-					// Projection of circle centre onto the sphere.
-					minRadiusPositions[0][0] = acos(circleCentre[2] / sqrt(pow(circleCentre[0], 2) + pow(circleCentre[1], 2) + pow(circleCentre[2], 2)));
-					minRadiusPositions[0][1] = atan(circleCentre[1] / circleCentre[0]);
-					// Position of i.
-					minRadiusPositions[1][0] = currentPoints[currentPointsIndices[i]][3];
-					minRadiusPositions[1][1] = currentPoints[currentPointsIndices[i]][4];
+				// Update the arc radius of the smallest empty circle formed by any three points if applicable.
+				if(circleEmpty == true){
+					if(currentRadius < minRadius){
+						minRadius = currentRadius;
+					}
 				}
 			}
 		}
 	}
-	double minArcRadius = acos(cos(minRadiusPositions[0][0]) * cos(minRadiusPositions[1][0]) + sin(minRadiusPositions[0][0]) * sin(minRadiusPositions[1][0]) * cos(minRadiusPositions[0][1] - minRadiusPositions[1][1])) * radius;
+	double minArcRadius = asin(minRadius / radius) * radius;
 	// Calculate the shortest arc distance between any two points.
-	double minDistance = 2 * radius;
-	int minDistanceIndices[2];
+	double minDistance = std::numeric_limits<double>::max();
 	for(int i = 0; i < numOfPoints - 1; i++){
 		for(int j = i + 1; j < numOfPoints; j++){
 			double currentDistance = sqrt(pow(currentPoints[i][0] - currentPoints[j][0], 2) + pow(currentPoints[i][1] - currentPoints[j][1], 2) + pow(currentPoints[i][2] - currentPoints[j][2], 2));
-			if(currentDistance <= minDistance){
+			if(currentDistance < minDistance){
 				minDistance = currentDistance;
-				minDistanceIndices[0] = currentPointsIndices[i];
-				minDistanceIndices[1] = currentPointsIndices[j];
 			}
 		}
 	}
-	double minArcDistance = acos(cos(crossPoints[minDistanceIndices[0]][3]) * cos(crossPoints[minDistanceIndices[1]][3]) + sin(crossPoints[minDistanceIndices[0]][3]) * sin(crossPoints[minDistanceIndices[1]][3]) * cos(crossPoints[minDistanceIndices[0]][4] - crossPoints[minDistanceIndices[1]][4])) * radius;
+	double minArcDistance = asin(minDistance / 2 / radius) * radius * 2;
 	// Calculate measurement value.
 	double measurement = 2 * minArcRadius / minArcDistance;
 	// Update the optimal measurement value if applicable.
@@ -282,8 +260,7 @@ void place_points(){
 				std::cout << optimalPoints[i][1] << "\t";
 				std::cout << optimalPoints[i][2] << std::endl;
 			}
-			std::cout << "Optimal measurement:" << std::endl;
-			std::cout << optimalMeasurement << std::endl;
+			std::cout << "Optimal measurement: " << optimalMeasurement << std::endl;
 		}
 	}
 }
