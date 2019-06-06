@@ -36,4 +36,9 @@ Important bug fixes.
 Important simplification on the algorithm of measuring 2 * arc(R) / arc(d).
 Caution: dealing with a circle with radius equal to the radius of the sphere.
 Caution: dealing with a circle defined by more than three points.
-Caution: precision loss in double calculation.
+
+06.06.19 THU
+Important bug fix on choosing the suitable pair of parameters for solving the equation.
+Scaling factor introduced for higher calculation accuracy.
+Code for displaying the circle centre temporarily added.
+Fetal bug in the precision loss of double calculation.

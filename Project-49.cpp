@@ -4,31 +4,34 @@
 #include <cmath>
 #include <limits>
 
-// Calculation global variables.
-static const GLdouble radius = 1.0; // Radius of sphere.
-static const GLint stacks = 20; // Numebr of latitude lines + 1.
-static const GLint slices = 20; // Number of longtitude lines.
-static const int numOfPoints = 3; // Number of points to place on the sphere.
-
-static GLdouble crossPoints[(stacks - 1) * slices + 2][3]; // Set of all points at intersection.
-static int currentPointsIndices[numOfPoints]; // The indices of the current placing of points.
-static GLdouble currentPoints[numOfPoints][3]; // The current placing of points being measured.
-static GLdouble optimalPoints[numOfPoints][3]; // The placing of points with optimal measurement value.
-static double optimalMeasurement; // The measurement value for the optimal placing.
-
-static bool processing = false; // Whether the measurement is processing.
-static bool completed = false; // Whether the measurement is completed.
-
 // OpenGL global variables.
 static int window;
 
 static const int windowSize = 1280; // Size of window.
+
+static const GLdouble displayRadius = 1.0; // Radius of the sphere for display.
 
 static GLfloat rotateX = 0.0; // The pending rotation around x axis.
 static GLfloat rotateY = 0.0; // The pending rotation around y axis.
 static GLfloat rotateZ = 0.0; // The pending rotation around z axis.
 
 static bool animation = false; // Whether animation is enabled.
+
+// Calculation global variables.
+static const double scale = 1.0 * pow(10, 0); // Scaling factor for improving calculation accuracy.
+static const double radius = displayRadius * scale; // Radius of sphere.
+static const GLint stacks = 20; // Numebr of latitude lines + 1.
+static const GLint slices = 20; // Number of longtitude lines.
+static const int numOfPoints = 3; // Number of points to place on the sphere.
+
+static double crossPoints[(stacks - 1) * slices + 2][3]; // Set of all points at intersection.
+static int currentPointsIndices[numOfPoints]; // The indices of the current placing of points.
+static double currentPoints[numOfPoints][3]; // The current placing of points being measured.
+static double optimalPoints[numOfPoints][3]; // The placing of points with optimal measurement value.
+static double optimalMeasurement; // The measurement value for the optimal placing.
+
+static bool processing = false; // Whether the measurement is processing.
+static bool completed = false; // Whether the measurement is completed.
 
 // Calculation of coordinates for points at intersection.
 void set_cross_points(GLfloat radius, GLint slices, GLint stacks){
@@ -145,6 +148,10 @@ void measure(){
 // Where arc(d) is the shortest arc distance between any two points.
 // Without optimisation.
 // Assume that there are more than two points.
+//
+double currentCircleCentre[3];
+double optimalCircleCentre[3];
+//
 static double baseMeasurement = std::numeric_limits<double>::max(); // Initial value of measurement.
 void measure(){
 	// Calculate the arc radius of the smallest empty circle formed by any three points.
@@ -165,8 +172,38 @@ void measure(){
 				double vpik[3] = {vp[1] * vik[2] - vik[1] * vp[2], vik[0] * vp[2] - vp[0] * vik[2], vp[0] * vik[1] - vik[0] * vp[1]};
 				// Calculate midpoint of ik.
 				double mik[3] = {(currentPoints[k][0] + currentPoints[i][0]) / 2, (currentPoints[k][1] + currentPoints[i][1]) / 2, (currentPoints[k][2] + currentPoints[i][2]) / 2};
+				// Define which pair of parameters is used to solve tij.
+				bool parameterPair[3] = {true, true, true}; // (x, y), (x, z), (y, z).
+				if((vpij[0] == 0 && vpik[0] == 0) || (vpij[1] == 0 && vpik[1] == 0) || (vpij[0] == 0 && vpij[1] == 0) || (vpik[0] == 0 && vpik[1] == 0)){
+					parameterPair[0] = false;
+				}
+				if((mij[0] == mik[0] && mij[1] == mik[1]) || (mij[0] == mik[0] && vpik[0] == 0) || (mij[1] == mik[1] && vpik[1] == 0) || (vpik[0] == 0 && vpik[1] == 0)){
+					parameterPair[0] = false;
+				}
+				if((vpij[0] == 0 && vpik[0] == 0) || (vpij[2] == 0 && vpik[2] == 0) || (vpij[0] == 0 && vpij[2] == 0) || (vpik[0] == 0 && vpik[2] == 0)){
+					parameterPair[1] = false;
+				}
+				if((mij[0] == mik[0] && mij[2] == mik[2]) || (mij[0] == mik[0] && vpik[0] == 0) || (mij[2] == mik[2] && vpik[2] == 0) || (vpik[0] == 0 && vpik[2] == 0)){
+					parameterPair[1] = false;
+				}
+				if((vpij[1] == 0 && vpik[1] == 0) || (vpij[2] == 0 && vpik[2] == 0) || (vpij[1] == 0 && vpij[2] == 0) || (vpik[1] == 0 && vpik[2] == 0)){
+					parameterPair[2] = false;
+				}
+				if((mij[1] == mik[1] && mij[2] == mik[2]) || (mij[1] == mik[1] && vpik[1] == 0) || (mij[2] == mik[2] && vpik[2] == 0) || (vpik[1] == 0 && vpik[2] == 0)){
+					parameterPair[2] = false;
+				}
 				// Calculate the position of circle centre.
-				double tij = ((mik[1] - mij[1]) * vpik[0] + (mij[0] - mik[0]) * vpik[1]) / (vpij[1] * vpik[0] - vpij[0] * vpik[1]);
+				double tij;
+				if(parameterPair[0] == true){
+					// Solve tij with x and y.
+					tij = ((mik[1] - mij[1]) * vpik[0] + (mij[0] - mik[0]) * vpik[1]) / (vpij[1] * vpik[0] - vpij[0] * vpik[1]);
+				}else if(parameterPair[1] == true){
+					// Solve tij with x and z.
+					tij = ((mik[2] - mij[2]) * vpik[0] + (mij[0] - mik[0]) * vpik[2]) / (vpij[2] * vpik[0] - vpij[0] * vpik[2]);
+				}else{
+					// Solve tij with y and z.
+					tij = ((mik[2] - mij[2]) * vpik[1] + (mij[1] - mik[1]) * vpik[2]) / (vpij[2] * vpik[1] - vpij[1] * vpik[2]);
+				}
 				double circleCentre[3] = {mij[0] + tij * vpij[0], mij[1] + tij * vpij[1], mij[2] + tij * vpij[2]};
 				double currentRadius = sqrt(pow(currentPoints[i][0] - circleCentre[0], 2) + pow(currentPoints[i][1] - circleCentre[1], 2) + pow(currentPoints[i][2] - circleCentre[2], 2));
 				// Check if the circle is empty.
@@ -187,6 +224,11 @@ void measure(){
 				if(circleEmpty == true){
 					if(currentRadius < minRadius){
 						minRadius = currentRadius;
+						//
+						currentCircleCentre[0] = circleCentre[0];
+						currentCircleCentre[1] = circleCentre[1];
+						currentCircleCentre[2] = circleCentre[2];
+						//
 					}
 				}
 			}
@@ -214,6 +256,11 @@ void measure(){
 			optimalPoints[i][1] = currentPoints[i][1];
 			optimalPoints[i][2] = currentPoints[i][2];
 		}
+		//
+		optimalCircleCentre[0] = currentCircleCentre[0];
+		optimalCircleCentre[1] = currentCircleCentre[1];
+		optimalCircleCentre[2] = currentCircleCentre[2];
+		//
 		std::cout << "Current optimal measurement: " << optimalMeasurement << std::endl;
 	}
 }
@@ -284,11 +331,11 @@ void display(){
 	glEnd();
 	// Sphere.
 	glColor3f(1, 1, 1);
-	glutWireSphere(radius, slices, stacks);
+	glutWireSphere(displayRadius, slices, stacks);
 	// Display the optimal placing of points in green.
 	for(int i = 0; i < numOfPoints; i++){
 		glPushMatrix();
-			glTranslated(optimalPoints[i][0], optimalPoints[i][1], optimalPoints[i][2]);
+			glTranslated(GLdouble(optimalPoints[i][0] / scale), GLdouble(optimalPoints[i][1] / scale), GLdouble(optimalPoints[i][2] / scale));
 			glColor3f(0, 1, 0);
 			glutSolidSphere(0.01, 4, 4);
 		glPopMatrix();
@@ -296,11 +343,18 @@ void display(){
 	// Display the current placing of points being measured in red.
 	for(int i = 0; i < numOfPoints; i++){
 		glPushMatrix();
-			glTranslated(currentPoints[i][0], currentPoints[i][1], currentPoints[i][2]);
+			glTranslated(GLdouble(currentPoints[i][0] / scale), GLdouble(currentPoints[i][1] / scale), GLdouble(currentPoints[i][2] / scale));
 			glColor3f(1, 0, 0);
 			glutWireSphere(0.01, 4, 4);
 		glPopMatrix();
 	}
+	//
+	glPushMatrix();
+		glTranslated(GLdouble(currentCircleCentre[0]) / scale, GLdouble(currentCircleCentre[1] / scale), GLdouble(currentCircleCentre[2] / scale));
+		glColor3f(0, 0, 1);
+		glutWireSphere(0.01, 4, 4);
+	glPopMatrix();
+	//
 	// Rotation.
 	glRotatef(rotateX, 1.0, 0.0, 0.0);
 	glRotatef(rotateY, 0.0, 1.0, 0.0);
